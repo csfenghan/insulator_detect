@@ -68,8 +68,12 @@ class Detector:
         return:
             二值化以后的图像，绝缘子串为白色区域，背景为黑色
         """
-        # 二值化
-        img_gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
+        # 锐化、二值化
+        img_blur = cv2.GaussianBlur(img, (0, 0), 25)
+        img_sharp = cv2.addWeighted(img, 1.5, img_blur, -0.5, 0)
+
+        img_gray = cv2.cvtColor(img_sharp, cv2.COLOR_RGB2GRAY)
+        img_gray = cv2.add(img_gray, -30)    # 降低原图的亮度，以消除光照干扰(这一步很重要)
         thresh, img_binary = cv2.threshold(img_gray, 127, 255, cv2.THRESH_OTSU and cv2.THRESH_BINARY_INV)
 
         # 形态学操作
@@ -126,10 +130,17 @@ class Detector:
         fit_points = []
         lines = cv2.HoughLinesP(temp_img, 1, np.pi / 180, 80, minLineLength=80, maxLineGap=10)
         for point in mid_line:
+            if type(lines) == type(None):
+                cv2.imshow('img', img)
+                cv2.waitKey(0)
+                break
             for line in lines:
                 if (point[1] >= line[0][1]) and (point[1] <= line[0][3]):
                     fit_points.append(point)
                     break
+
+        if len(fit_points) == 0:
+            return mid_line, [], [] 
 
         # 拟合直线
         param = cv2.fitLine(np.array(fit_points), cv2.DIST_L2, 0, 0.01, 0.01)
@@ -155,17 +166,21 @@ class Detector:
             返回一个在0-1区间内的置信度，表示收到过度曝光影响的概率
         """
 
-        # len(mid_line_detected) <= len(mid_line_fitted)一定满足，不存在大于的情况
         # 如果len(mid_line_detected) < len(mid_line_fitted)，那么中间一定存在缺失，即存在过曝;
-        if len(mid_line_detected) < len(mid_line_fitted):
+        # 如果len(mid_line_detected) > len(mid_line_fitted)，那么说明没有检测到直线，一定有过曝
+        if len(mid_line_detected) != len(mid_line_fitted):
             return 1
         
+        # 计算所有点之间的平方和
         sum = 0
-        for i in range(len(mid_line_detected)):
+        confidence = 0
+        nums = len(mid_line_detected)
+        for i in range(nums):
             sum += math.pow(mid_line_detected[i][0] - mid_line_fitted[i][0], 2)    
 
-        print(sum)
-        return 0
+        confidence = sum / nums 
+
+        return confidence
 
 def main(opt):
     detector = Detector()
@@ -178,12 +193,12 @@ def main(opt):
             img_binary = detector.preProcess(img)
 
             mid_line_detected, mid_line_fitted, lines = detector.findMidLine(img_binary)
-            conn = detector.isOverExposure(img, mid_line_detected, mid_line_fitted)
-
+            confidence = detector.isOverExposure(img, mid_line_detected, mid_line_fitted)
+            print("confidence: {}".format(confidence))
             for point in mid_line_detected:
                 cv2.circle(img, point, 0, (0, 255, 0))
-            for point in mid_line_fitted:
-                cv2.circle(img, point, 0, (255, 0, 0))
+            #for point in mid_line_fitted:
+            #    cv2.circle(img, point, 0, (255, 0, 0))
             #for line in lines:
             #    x1, y1, x2, y2 = line[0]
             #    cv2.line(img, (x1, y1), (x2, y2), (0, 0, 255))
@@ -192,6 +207,7 @@ def main(opt):
             cv2.imshow("img", img)
             if cv2.waitKey(0) == ord("q"):
                 exit(0)
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--source", type=str, default="images", help="images directory")
