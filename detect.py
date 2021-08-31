@@ -4,7 +4,7 @@ import numpy as np
 import sys
 import os
 
-def parseArg(opt):
+def parseInput(opt):
     """
     description:解析输入的图片路径，给出路径中可用的图像数据
     param:
@@ -44,7 +44,7 @@ def parseArg(opt):
         
 
 def main(opt):
-    data = parseArg(opt)
+    data = parseInput(opt)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
