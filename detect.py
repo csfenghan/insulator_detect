@@ -4,11 +4,26 @@ import numpy as np
 import sys
 import os
 from matplotlib import pyplot as plt
+import math
 
 class Detector:
     def __init__(self):
         pass
 
+    def plotHistGraph(self, img, color):
+        """
+        description:绘制直方图
+        """
+        img_gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
+        hist = cv2.calcHist([img_gray], [0], None, [256], [0, 256])
+        histGrapth = np.zeros([256, 256, 3], np.uint8)
+        m = max(hist)
+        hist = hist * 220 / m
+        for h in range(256):
+            n = int(hist[h])
+            cv2.line(histGrapth, (h, 255), (h, 255 - n), color)
+            return histGrapth
+ 
     def parseInput(self, opt):
         """
         description:解析输入的图片路径，给出路径中可用的图像数据
@@ -101,7 +116,7 @@ class Detector:
             if col1 < col2:
                 x = (col1 + col2) // 2
                 mid_line.append([x, row])    
-                temp_img[row, x - 3 : x + 3] = 255
+                temp_img[row, x - 1 : x + 1] = 255
                 if len(mid_line_range) < 2:
                     mid_line_range.append(row)
                 if len(mid_line_range) == 2:
@@ -109,7 +124,7 @@ class Detector:
 
         # 霍夫变换检测直线,寻找在拟合的直线上的点
         fit_points = []
-        lines = cv2.HoughLinesP(temp_img, 1, np.pi / 180, 50, minLineLength=50, maxLineGap=10)
+        lines = cv2.HoughLinesP(temp_img, 1, np.pi / 180, 80, minLineLength=80, maxLineGap=10)
         for point in mid_line:
             for line in lines:
                 if (point[1] >= line[0][1]) and (point[1] <= line[0][3]):
@@ -126,28 +141,30 @@ class Detector:
         for row in range(mid_line_range[0], mid_line_range[1] + 1):
             mid_line_fitted.append([int((row - b) // k), row]) 
         
-        return mid_line, mid_line_fitted
+        return mid_line, mid_line_fitted, lines
 
-    def plotHistGraph(self, img, color):
-        """
-        description:绘制直方图
-        """
-        img_gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
-        hist = cv2.calcHist([img_gray], [0], None, [256], [0, 256])
-        histGrapth = np.zeros([256, 256, 3], np.uint8)
-        m = max(hist)
-        hist = hist * 220 / m
-        for h in range(256):
-            n = int(hist[h])
-            cv2.line(histGrapth, (h, 255), (h, 255 - n), color)
-            return histGrapth
-        
-    def isOverExposure(self, img):
+       
+    def isOverExposure(self, img, mid_line_detected, mid_line_fitted):
         """
         description:给定一张神经网络检测到的绝缘子串的图片，返回过度曝光的置信度
+        param:
+            img:输入原图片
+            mid_line_detected:检测到的中线点
+            mid_line_fitted:计算得到的理论中线点
         return:
-        返回一个在0-1区间内的置信度，表示收到过度曝光影响的概率
+            返回一个在0-1区间内的置信度，表示收到过度曝光影响的概率
         """
+
+        # len(mid_line_detected) <= len(mid_line_fitted)一定满足，不存在大于的情况
+        # 如果len(mid_line_detected) < len(mid_line_fitted)，那么中间一定存在缺失，即存在过曝;
+        if len(mid_line_detected) < len(mid_line_fitted):
+            return 1
+        
+        sum = 0
+        for i in range(len(mid_line_detected)):
+            sum += math.pow(mid_line_detected[i][0] - mid_line_fitted[i][0], 2)    
+
+        print(sum)
         return 0
 
 def main(opt):
@@ -156,12 +173,25 @@ def main(opt):
     
     for key in data: 
         img = cv2.imread(key)
-        img_binary = detector.preProcess(img)
-        detector.findMidLine(img_binary)
-
         for value in data[key]:
             img = cv2.imread(value)
+            img_binary = detector.preProcess(img)
 
+            mid_line_detected, mid_line_fitted, lines = detector.findMidLine(img_binary)
+            conn = detector.isOverExposure(img, mid_line_detected, mid_line_fitted)
+
+            for point in mid_line_detected:
+                cv2.circle(img, point, 0, (0, 255, 0))
+            for point in mid_line_fitted:
+                cv2.circle(img, point, 0, (255, 0, 0))
+            #for line in lines:
+            #    x1, y1, x2, y2 = line[0]
+            #    cv2.line(img, (x1, y1), (x2, y2), (0, 0, 255))
+
+            cv2.imshow("binary", img_binary)
+            cv2.imshow("img", img)
+            if cv2.waitKey(0) == ord("q"):
+                exit(0)
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--source", type=str, default="images", help="images directory")
