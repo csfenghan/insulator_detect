@@ -93,6 +93,16 @@ class Detector:
                 cv2.fillPoly(img_binary, [contours[i]], 0)
 
         return img_binary
+    
+    def randomSampleConsensus(self, points):
+        """
+        description:拟合points中的直线点，寻找出最接近的直线参数
+        param:
+            points:离散点的坐标，格式为[[x1, y1], [x2, y2],...]
+        return:
+            直线的参数，格式为k,b
+        """
+        pass
 
     def findMidLine(self, img):
         """
@@ -131,8 +141,7 @@ class Detector:
         lines = cv2.HoughLinesP(temp_img, 1, np.pi / 180, 80, minLineLength=80, maxLineGap=10)
         for point in mid_line:
             if type(lines) == type(None):
-                cv2.imshow('img', img)
-                cv2.waitKey(0)
+                print("没有检测到直线")
                 break
             for line in lines:
                 if (point[1] >= line[0][1]) and (point[1] <= line[0][3]):
@@ -165,20 +174,27 @@ class Detector:
         return:
             返回一个在0-1区间内的置信度，表示收到过度曝光影响的概率
         """
+        k1 = 10000    # 计算平方和时的一个加权系数，作用是不让数据太小（不直观）
 
         # 如果len(mid_line_detected) < len(mid_line_fitted)，那么中间一定存在缺失，即存在过曝;
         # 如果len(mid_line_detected) > len(mid_line_fitted)，那么说明没有检测到直线，一定有过曝
         if len(mid_line_detected) != len(mid_line_fitted):
             return 1
         
-        # 计算所有点之间的平方和
-        sum = 0
+        # 计算置信度(根据图像的长宽、检测到的中点和理论上的中点的偏差值以及其和图像长宽的比例计算置信度)
+        # 1. 如果发生缺失，则应该对其添加惩罚
+        # 2. 置信度应该和图像的长宽无关，只是一个表示检测的绝缘子串质量好坏的参数
         confidence = 0
+        rows, cols, _ = img.shape
+
         nums = len(mid_line_detected)
         for i in range(nums):
-            sum += math.pow(mid_line_detected[i][0] - mid_line_fitted[i][0], 2)    
-
-        confidence = sum / nums 
+            # 消除图像宽度的影响，计算平方和
+            confidence += k1 * math.pow((mid_line_detected[i][0] - mid_line_fitted[i][0]) / cols, 2)    
+        
+        confidence = confidence / (nums + 1e-8) # 消除中线长度对置信度的影响
+        #confidence = confidence + k * math.pow((1 - nums / rows), 2)    # 添加中线缺失惩罚项
+        #print(nums / rows)
 
         return confidence
 
@@ -197,11 +213,9 @@ def main(opt):
             print("confidence: {}".format(confidence))
             for point in mid_line_detected:
                 cv2.circle(img, point, 0, (0, 255, 0))
-            #for point in mid_line_fitted:
-            #    cv2.circle(img, point, 0, (255, 0, 0))
-            #for line in lines:
-            #    x1, y1, x2, y2 = line[0]
-            #    cv2.line(img, (x1, y1), (x2, y2), (0, 0, 255))
+            for line in lines:
+                x1, y1, x2, y2 = line[0]
+                cv2.line(img, (x1, y1), (x2, y2), (0, 0, 255))
 
             cv2.imshow("binary", img_binary)
             cv2.imshow("img", img)
