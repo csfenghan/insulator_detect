@@ -3,7 +3,8 @@
 """
 import random
 
-def run_ransac(data, estimate, is_inlier, sample_size, goal_inliers, max_iterations, stop_at_goal=True, random_seed=None):
+def run_ransac(data, estimate, is_inlier, sample_size, goal_inliers, 
+            max_iterations, stop_at_goal=True, random_seed=None):
     """
     description:对数据进行ransac变换
     param:
@@ -35,5 +36,5 @@ def run_ransac(data, estimate, is_inlier, sample_size, goal_inliers, max_iterati
             best_model = m
             if ic > goal_inliers and stop_at_goal:
                 break
-    #print('took iterations:', i+1, 'best model:', best_model, 'explains:', best_ic)
+    print('took iterations:', i+1, 'best model:', best_model, 'explains:', best_ic)
     return best_model, best_ic

@@ -19,11 +19,13 @@ def is_inlier(coeffs, xy, threshold):
     """
     return np.abs(coeffs.dot(augment([xy]).T)) < threshold
 
-def line_fitting(data, threshold, sample_size, goal_inliers, max_iterations, random_seed=0):
+def line_fitting(data, threshold, sample_size, goal_inliers, 
+                max_iterations,stop_at_goal=False, random_seed=0):
     """
     拟合直线
     """
-    m, b = run_ransac(data, estimate, lambda x, y: is_inlier(x, y, threshold), sample_size, goal_inliers, max_iterations, random_seed)
+    m, b = run_ransac(data, estimate, lambda x, y: is_inlier(x, y, threshold), sample_size, 
+            goal_inliers, max_iterations, stop_at_goal=stop_at_goal, random_seed=random_seed) 
     return m
 
 if __name__ == '__main__':
