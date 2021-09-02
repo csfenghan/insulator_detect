@@ -71,10 +71,10 @@ class Detector:
             二值化以后的图像，绝缘子串为白色区域，背景为黑色
         """
         # 二值化
-
         img_gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
-        img_gray = cv2.add(img_gray, -30)    # 降低原图的亮度，以消除光照干扰(这一步很重要)
-        thresh, img_binary = cv2.threshold(img_gray, 127, 255, cv2.THRESH_OTSU and cv2.THRESH_BINARY_INV)
+        #img_gray = cv2.add(img_gray, 0)    # 降低原图的亮度，以消除光照干扰(这一步很重要)
+        #thresh, img_binary = cv2.threshold(img_gray, 0, 255, cv2.THRESH_OTSU | cv2.THRESH_BINARY_INV)
+        thresh, img_binary = cv2.threshold(img_gray, 220, 255, cv2.THRESH_BINARY_INV)
 
         # 形态学操作
         kernel = np.ones((5, 5), np.uint8)
@@ -91,6 +91,7 @@ class Detector:
         for i in range(len(contours)):
             if i != max_idx:
                 cv2.fillPoly(img_binary, [contours[i]], 0)
+                pass
 
         return img_binary
     
@@ -102,7 +103,12 @@ class Detector:
         return:
             直线的参数，格式为k,b
         """
-        pass
+        m = line_fitting(points, threshold=0.01, sample_size=30, 
+                        goal_inliers=100, max_iterations=30, stop_at_goal=True, random_seed=0)
+        k = - m[0] / m[1]
+        b = - m[2] / m[1]
+
+        return k, b
 
     def findMidLine(self, img):
         """
@@ -136,10 +142,7 @@ class Detector:
                     mid_line_range[1] = row
 
         # 使用RANSAC拟合直线
-        m = line_fitting(mid_line, threshold=0.01, sample_size=30, 
-                        goal_inliers=100, max_iterations=30, stop_at_goal=True, random_seed=0)
-        k = - m[0] / m[1]
-        b = - m[2] / m[1]
+        k, b = self.randomSampleConsensus(mid_line)
         
         # 霍夫变换检测直线,寻找在拟合的直线上的点
         """fit_points = []
@@ -179,24 +182,15 @@ class Detector:
         return:
             返回一个在0-1区间内的置信度，表示收到过度曝光影响的概率
         """
-        k1 = 10000    # 计算平方和时的一个加权系数，作用是不让数据太小（不直观）
-
         # 如果len(mid_line_detected) < len(mid_line_fitted)，那么中间一定存在缺失，即存在过曝;
         # 如果len(mid_line_detected) > len(mid_line_fitted)，那么说明没有检测到直线，一定有过曝
-        if len(mid_line_detected) != len(mid_line_fitted):
-            return 1
-        
         confidence = 0
-        rows, cols, _ = img.shape
 
-        nums = len(mid_line_detected)
-        for i in range(nums):
-            # 消除图像宽度的影响，计算平方和
-            confidence += k1 * math.pow((mid_line_detected[i][0] - mid_line_fitted[i][0]) / cols, 2)    
-        
-        confidence = confidence / (nums + 1e-8) # 消除中线长度对置信度的影响
-        #confidence = confidence + k * math.pow((1 - nums / rows), 2)    # 添加中线缺失惩罚项
-        #print(nums / rows)
+        if len(mid_line_detected) > len(mid_line_fitted):
+            print("error!理论点数少于检测点数")
+            exit(0)
+
+        square_sum = 0 
 
         return confidence
 
@@ -219,7 +213,7 @@ def main(opt):
                 cv2.circle(img, point, 0, (255, 0, 0))
 
             cv2.imshow("binary", img_binary)
-            cv2.imshow("img", img)
+            cv2.imshow("img", cv2.cvtColor(img, cv2.COLOR_RGB2GRAY))
             if cv2.waitKey(0) == ord("q"):
                 exit(0)
 
