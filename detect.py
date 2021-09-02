@@ -5,6 +5,8 @@ import sys
 import os
 from matplotlib import pyplot as plt
 import math
+from line_fitting import line_fitting
+from timeit import default_timer as timer
 
 class Detector:
     def __init__(self):
@@ -68,11 +70,9 @@ class Detector:
         return:
             二值化以后的图像，绝缘子串为白色区域，背景为黑色
         """
-        # 锐化、二值化
-        img_blur = cv2.GaussianBlur(img, (0, 0), 25)
-        img_sharp = cv2.addWeighted(img, 1.5, img_blur, -0.5, 0)
+        # 二值化
 
-        img_gray = cv2.cvtColor(img_sharp, cv2.COLOR_RGB2GRAY)
+        img_gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
         img_gray = cv2.add(img_gray, -30)    # 降低原图的亮度，以消除光照干扰(这一步很重要)
         thresh, img_binary = cv2.threshold(img_gray, 127, 255, cv2.THRESH_OTSU and cv2.THRESH_BINARY_INV)
 
@@ -116,8 +116,8 @@ class Detector:
         mid_line_range = []
 
         # 寻找绝缘子串的左右轮廓
+        # !!!这一段算法需要优化，平均耗时200-300ms，太长了!!!
         rows, cols = img.shape
-        temp_img = np.zeros(img.shape, np.uint8)
         for row in range(rows):
             for col1 in range(cols):
                 if img[row, col1] == 255:
@@ -130,14 +130,19 @@ class Detector:
             if col1 < col2:
                 x = (col1 + col2) // 2
                 mid_line.append([x, row])    
-                temp_img[row, x - 1 : x + 1] = 255
                 if len(mid_line_range) < 2:
                     mid_line_range.append(row)
                 if len(mid_line_range) == 2:
                     mid_line_range[1] = row
 
+        # 使用RANSAC拟合直线
+        m = line_fitting(mid_line, threshold=0.01, sample_size=30, 
+                        goal_inliers=100, max_iterations=30, stop_at_goal=True, random_seed=0)
+        k = - m[0] / m[1]
+        b = - m[2] / m[1]
+        
         # 霍夫变换检测直线,寻找在拟合的直线上的点
-        fit_points = []
+        """fit_points = []
         lines = cv2.HoughLinesP(temp_img, 1, np.pi / 180, 80, minLineLength=80, maxLineGap=10)
         for point in mid_line:
             if type(lines) == type(None):
@@ -154,14 +159,14 @@ class Detector:
         # 拟合直线
         param = cv2.fitLine(np.array(fit_points), cv2.DIST_L2, 0, 0.01, 0.01)
         k = (param[1] / param[0])[0]
-        b = (param[3] - k * param[2])[0]
+        b = (param[3] - k * param[2])[0]"""
 
         # 使用拟合后的直线作为中线的理论值
         mid_line_fitted = []  
         for row in range(mid_line_range[0], mid_line_range[1] + 1):
             mid_line_fitted.append([int((row - b) // k), row]) 
         
-        return mid_line, mid_line_fitted, lines
+        return mid_line, mid_line_fitted
 
        
     def isOverExposure(self, img, mid_line_detected, mid_line_fitted):
@@ -181,9 +186,6 @@ class Detector:
         if len(mid_line_detected) != len(mid_line_fitted):
             return 1
         
-        # 计算置信度(根据图像的长宽、检测到的中点和理论上的中点的偏差值以及其和图像长宽的比例计算置信度)
-        # 1. 如果发生缺失，则应该对其添加惩罚
-        # 2. 置信度应该和图像的长宽无关，只是一个表示检测的绝缘子串质量好坏的参数
         confidence = 0
         rows, cols, _ = img.shape
 
@@ -206,16 +208,15 @@ def main(opt):
         img = cv2.imread(key)
         for value in data[key]:
             img = cv2.imread(value)
-            img_binary = detector.preProcess(img)
 
-            mid_line_detected, mid_line_fitted, lines = detector.findMidLine(img_binary)
+            img_binary = detector.preProcess(img)
+            mid_line_detected, mid_line_fitted = detector.findMidLine(img_binary)
             confidence = detector.isOverExposure(img, mid_line_detected, mid_line_fitted)
-            print("confidence: {}".format(confidence))
+
             for point in mid_line_detected:
                 cv2.circle(img, point, 0, (0, 255, 0))
-            for line in lines:
-                x1, y1, x2, y2 = line[0]
-                cv2.line(img, (x1, y1), (x2, y2), (0, 0, 255))
+            for point in mid_line_fitted:
+                cv2.circle(img, point, 0, (255, 0, 0))
 
             cv2.imshow("binary", img_binary)
             cv2.imshow("img", img)
