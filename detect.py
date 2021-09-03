@@ -72,26 +72,35 @@ class Detector:
         """
         # 二值化
         img_gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
-        #img_gray = cv2.add(img_gray, 0)    # 降低原图的亮度，以消除光照干扰(这一步很重要)
-        #thresh, img_binary = cv2.threshold(img_gray, 0, 255, cv2.THRESH_OTSU | cv2.THRESH_BINARY_INV)
-        thresh, img_binary = cv2.threshold(img_gray, 220, 255, cv2.THRESH_BINARY_INV)
+        img_gray = cv2.add(img_gray, -30)    # 降低原图的亮度，以消除光照干扰(这一步很重要)
+        thresh, img_binary = cv2.threshold(img_gray, 0, 255, cv2.THRESH_OTSU | cv2.THRESH_BINARY_INV)
+        #thresh, img_binary = cv2.threshold(img_gray, 220, 255, cv2.THRESH_BINARY_INV)
 
         # 形态学操作
         kernel = np.ones((5, 5), np.uint8)
         img_binary = cv2.dilate(img_binary, kernel, iterations=2)
         img_binary = cv2.erode(img_binary, kernel, iterations=2)
 
-        # 寻找最大连通区域,将非最大联通区域的部分清零
+        # 寻找最大连通区域,将面积较小的连通区域的部分清零，保留面积最大的两块区域
         contours, hiterarchy = cv2.findContours(img_binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
         area = []
         for i in range(len(contours)):
             area.append(cv2.contourArea(contours[i]))
+        if len(area) == 0:
+            return img_binary
 
-        max_idx = -1 if len(area) == 0 else np.argmax(area) 
+        max_idx = list(np.argsort(area))
+        max_idx.reverse()
+        for i in range(1, len(max_idx)):
+            if i > 1 or area[max_idx[i]] < 0.2 * area[max_idx[0]]:
+                cv2.fillPoly(img_binary, [contours[max_idx[i]]], 0)
+
+        """max_idx = -1 if len(area) == 0 else np.argmax(area) 
         for i in range(len(contours)):
             if i != max_idx:
                 cv2.fillPoly(img_binary, [contours[i]], 0)
                 pass
+        """
 
         return img_binary
     
@@ -103,7 +112,10 @@ class Detector:
         return:
             直线的参数，格式为k,b
         """
-        m = line_fitting(points, threshold=0.01, sample_size=30, 
+        sample_size = 30
+        if len(points) < sample_size:
+            return 1e9, 0
+        m = line_fitting(points, threshold=0.01, sample_size=sample_size, 
                         goal_inliers=100, max_iterations=30, stop_at_goal=True, random_seed=0)
         k = - m[0] / m[1]
         b = - m[2] / m[1]
@@ -171,6 +183,8 @@ class Detector:
         
         return mid_line, mid_line_fitted
 
+    def sigmoid(self, x):
+        return 1 / (1 + np.exp(-x))
        
     def isOverExposure(self, img, mid_line_detected, mid_line_fitted):
         """
@@ -184,22 +198,36 @@ class Detector:
         """
         # 如果len(mid_line_detected) < len(mid_line_fitted)，那么中间一定存在缺失，即存在过曝;
         # 如果len(mid_line_detected) > len(mid_line_fitted)，那么说明没有检测到直线，一定有过曝
-        confidence = 0
+        rows, cols, _ = img.shape
+        number = len(mid_line_detected)
 
-        if len(mid_line_detected) > len(mid_line_fitted):
-            print("error!理论点数少于检测点数")
-            exit(0)
+        if len(mid_line_detected) < len(mid_line_fitted):
+            return 1
 
+        # 计算平方和
+        k1 = 10000
         square_sum = 0 
+        for i in range(number):
+            square_sum += math.pow(mid_line_detected[i][0] - mid_line_fitted[i][0], 2)
+        square_sum = k1 * square_sum / math.pow(cols, 2) / number
 
-        return confidence
+        # 添加缺失惩罚项
+        penalty = np.power(np.e, 10 * (rows / number - 1)) - 1
+        
+        # 归一化
+        k2 = 500    
+        confidence = square_sum + penalty
+        confidence -= 1     # 如果没有光照，一般其值小于1
+        if confidence < 0:
+            confidence *= k2
+
+        return self.sigmoid(confidence)
 
 def main(opt):
     detector = Detector()
     data = detector.parseInput(opt)
     
     for key in data: 
-        img = cv2.imread(key)
         for value in data[key]:
             img = cv2.imread(value)
 
@@ -207,13 +235,18 @@ def main(opt):
             mid_line_detected, mid_line_fitted = detector.findMidLine(img_binary)
             confidence = detector.isOverExposure(img, mid_line_detected, mid_line_fitted)
 
+            if confidence < 0.5:
+                print("未过曝,置信度:{}".format(confidence))
+            else:
+                print("过曝,置信度:{}".format(confidence))
+
             for point in mid_line_detected:
                 cv2.circle(img, point, 0, (0, 255, 0))
             for point in mid_line_fitted:
                 cv2.circle(img, point, 0, (255, 0, 0))
 
-            cv2.imshow("binary", img_binary)
-            cv2.imshow("img", cv2.cvtColor(img, cv2.COLOR_RGB2GRAY))
+            cv2.imshow("binary_img", img_binary)
+            cv2.imshow("img", img)
             if cv2.waitKey(0) == ord("q"):
                 exit(0)
 
