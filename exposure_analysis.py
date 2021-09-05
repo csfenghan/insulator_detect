@@ -1,10 +1,10 @@
 import math
 import numpy as np
 
-def sigmoid(self, x):
+def sigmoid(x):
     return 1 / (1 + np.exp(-x))
     
-def isOverExposure(self, img, mid_line_detected, mid_line_fitted):
+def isOverExposure(img, mid_line_detected, mid_line_fitted):
     """
     description:给定一张神经网络检测到的绝缘子串的图片，返回过度曝光的置信度
     param:
@@ -39,4 +39,4 @@ def isOverExposure(self, img, mid_line_detected, mid_line_fitted):
     if confidence < 0:
         confidence *= k2
 
-    return self.sigmoid(confidence)
+    return sigmoid(confidence)
