@@ -3,7 +3,6 @@ import argparse
 import numpy as np
 import sys
 import os
-from matplotlib import pyplot as plt
 import math
 from line_fitting import line_fitting
 from timeit import default_timer as timer
