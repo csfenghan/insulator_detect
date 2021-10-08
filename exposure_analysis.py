@@ -40,3 +40,13 @@ def isOverExposure(img, mid_line_detected, mid_line_fitted):
         confidence *= k2
 
     return sigmoid(confidence)
+
+def getExposureType(img, mid_line_detected, mid_line_fitted):
+    """
+    description:判断过度曝光的位置，缺失有三种类型：两端轻微缺失、两端严重缺失、中间缺失 
+    param:
+        img:要判断的图片
+        mid_line_detected:检测到的中线坐标
+        mid_line_fitted:拟合后的中线坐标
+    """
+    pass
