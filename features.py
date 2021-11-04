@@ -43,3 +43,14 @@ def findMidLine(img):
         mid_line_fitted.append([int((row - b) // k), row]) 
     
     return mid_line, mid_line_fitted
+
+def filter(X):
+    # 对灰度曲线进行滤波处理
+    # X需要是列表，返回类型与X相同
+    ratio = 0.2
+    prev_value = X[0]
+    for i in range(1, len(X)):
+        X[i] = ratio * X[i] + (1 - ratio) * prev_value 
+        prev_value = X[i]
+    return X
+

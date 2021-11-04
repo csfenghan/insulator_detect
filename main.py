@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 from timeit import default_timer as timer
 
 from utils import parseInput, preProcess
-from features import findMidLine
+from features import findMidLine, filter
 from exposure import isOverExposure
 
 def main(opt):
@@ -27,6 +27,7 @@ def main(opt):
         for p in mid_line_detected:
             x.append(p[1]) 
             y.append(img_gray[p[1], p[0]])
+        y = filter(y)
 
         # 显示        
         plt.figure(figsize=(15, 7))
