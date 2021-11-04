@@ -1,4 +1,4 @@
-# 提取绝缘子串的特征
+# 此文件包含了对绝缘子串进行特征处理的一些算法，包括中线提取、低通滤波等
 
 import cv2
 from ransac import randomSampleConsensus

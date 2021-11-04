@@ -1,4 +1,5 @@
-# 为图像添加随即曝光效果
+# 此文件包含了与曝光相关的一些函数，包括添加曝光、判断是否过曝
+
 import cv2
 import numpy as np
 import os
