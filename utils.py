@@ -49,10 +49,9 @@ def preProcess(img):
         二值化以后的图像，绝缘子串为白色区域，背景为黑色
     """
     # 二值化
-    img_gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
-    img_gray = cv2.add(img_gray, -30)    # 降低原图的亮度，以消除光照干扰(这一步很重要)
-    thresh, img_binary = cv2.threshold(img_gray, 0, 255, cv2.THRESH_OTSU | cv2.THRESH_BINARY_INV)
-    #thresh, img_binary = cv2.threshold(img_gray, 220, 255, cv2.THRESH_BINARY_INV)
+    img_gray1 = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
+    img_gray2 = cv2.add(img_gray1, -30)    # 降低原图的亮度，以消除光照干扰(这一步很重要)
+    thresh, img_binary = cv2.threshold(img_gray2, 0, 255, cv2.THRESH_OTSU | cv2.THRESH_BINARY_INV)
 
     # 形态学操作
     kernel = np.ones((5, 5), np.uint8)
@@ -80,4 +79,4 @@ def preProcess(img):
             pass
     """
 
-    return img_binary
+    return img_gray1, img_binary
