@@ -1,3 +1,5 @@
+# 定义一些辅助函数，包括解析输入、图像预处理 
+
 import os
 import cv2
 import numpy as np

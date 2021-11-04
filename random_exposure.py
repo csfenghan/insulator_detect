@@ -1,3 +1,4 @@
+# 为图像添加随即曝光效果
 import cv2
 import numpy as np
 import os

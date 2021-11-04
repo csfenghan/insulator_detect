@@ -29,17 +29,12 @@ def main(opt):
 
     for key in data: 
         img = cv2.imread(key)
-        output = detect(img)
-        cv2.imshow('output', output)
-        if cv2.waitKey(0) == ord('q'):
-            exit(0)
+        img_binary = preProcess(img)
+        mid_line_detected, mid_line_fitted = findMidLine(img_binary)
+
 
         for value in data[key]:
             img = cv2.imread(value)
-            output = detect(img)
-            cv2.imshow('output', output)
-            if cv2.waitKey(0) == ord('q'):
-                exit(0)
 
 
 if __name__ == "__main__":
