@@ -64,6 +64,24 @@ def line_fitting(data, threshold, sample_size, goal_inliers,
             goal_inliers, max_iterations, stop_at_goal=stop_at_goal, random_seed=random_seed) 
     return m
 
+def randomSampleConsensus(points):
+    """
+    description:拟合points中的直线点，寻找出最接近的直线参数
+    param:
+        points:离散点的坐标，格式为[[x1, y1], [x2, y2],...]
+    return:
+        直线的参数，格式为k,b
+    """
+    sample_size = 30
+    if len(points) < sample_size:
+        return 1e9, 0
+    m = line_fitting(points, threshold=0.01, sample_size=sample_size, 
+                    goal_inliers=100, max_iterations=30, stop_at_goal=True, random_seed=0)
+    k = - m[0] / m[1]
+    b = - m[2] / m[1]
+
+    return k, b
+
 if __name__ == '__main__':
     import matplotlib
     import matplotlib.pyplot as plt

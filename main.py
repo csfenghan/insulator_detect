@@ -1,10 +1,11 @@
 import cv2
 import argparse
 import numpy as np
+import matplotlib.pyplot as plt
 from timeit import default_timer as timer
 
-from feature_analysis import findMidLine
 from utils import parseInput, preProcess
+from feature_analysis import findMidLine
 from exposure_analysis import isOverExposure
 
 def detect(img):
@@ -30,11 +31,32 @@ def main(opt):
     for key in data: 
         img = cv2.imread(key)
         img_binary = preProcess(img)
+        img_gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
         mid_line_detected, mid_line_fitted = findMidLine(img_binary)
-
+        x = []
+        y = []
+        for p in mid_line_detected:
+            x.append(p[1]) 
+            y.append(img_gray[p[1], p[0]])
+        cv2.imshow('img', img)
+        cv2.waitKey(0)
+        plt.plot(x, y)
+        plt.show()
 
         for value in data[key]:
             img = cv2.imread(value)
+            img_binary = preProcess(img)
+            img_gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
+            mid_line_detected, mid_line_fitted = findMidLine(img_binary)
+            x = []
+            y = []
+            for p in mid_line_detected:
+                x.append(p[1]) 
+                y.append(img_gray[p[1], p[0]])
+            cv2.imshow('img', img)
+            cv2.waitKey(0)
+            plt.plot(x, y)
+            plt.show()
 
 
 if __name__ == "__main__":

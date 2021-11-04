@@ -1,25 +1,7 @@
 # 提取绝缘子串的特征
 
 import cv2
-from line_fitting import line_fitting
-
-def randomSampleConsensus(points):
-    """
-    description:拟合points中的直线点，寻找出最接近的直线参数
-    param:
-        points:离散点的坐标，格式为[[x1, y1], [x2, y2],...]
-    return:
-        直线的参数，格式为k,b
-    """
-    sample_size = 30
-    if len(points) < sample_size:
-        return 1e9, 0
-    m = line_fitting(points, threshold=0.01, sample_size=sample_size, 
-                    goal_inliers=100, max_iterations=30, stop_at_goal=True, random_seed=0)
-    k = - m[0] / m[1]
-    b = - m[2] / m[1]
-
-    return k, b
+from ransac import randomSampleConsensus
 
 def findMidLine(img):
     """
